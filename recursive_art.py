@@ -1,27 +1,42 @@
 """ TODO: Put your header comment here """
 
 import random
+import numpy as np
 from PIL import Image
 
 
 def build_random_function(min_depth, max_depth):
     """ Builds a random function of depth at least min_depth and depth
-        at most max_depth (see assignment writeup for definition of depth
-        in this context)
+        at most max_depth. Chooses functions from a list that includes
+        product, average, cosine, and sine, nesting them appropriately
+        based on min_depth and max_depth.
 
         min_depth: the minimum depth of the random function
         max_depth: the maximum depth of the random function
         returns: the randomly generated function represented as a nested list
-                 (see assignment writeup for details on the representation of
-                 these functions)
     """
-    # TODO: implement this
-    pass
+    funcs = ['prod', 'avg', 'cos_pi', 'sin_pi', 'x', 'y']
+    chosen_func = random.choice(funcs)
+    if min_depth > 0:
+        chosen_func = random.choice(funcs[0:4]) #if we haven't reached min_depth yet, we don't want to include x and y in the list of functions to choose from
+    elif min_depth <= 0 and max_depth > 0:
+        chosen_func = random.choice(funcs)
+    elif max_depth == 0:
+        chosen_func = random.choice(funcs[4:len(funcs)]) #if we've already reached max_depth, we don't want to continue; we only want to choose x or y
+
+    if chosen_func == 'prod' or chosen_func == 'avg':
+        return [chosen_func, build_random_function(min_depth-1, max_depth-1), build_random_function(min_depth-1, max_depth-1)] #prod & avg each take 2 arguments
+    elif chosen_func == 'cos_pi' or chosen_func == 'sin_pi':
+        return [chosen_func, build_random_function(min_depth-1, max_depth-1)] #cos and sin take 1 argument each
+    elif chosen_func == 'x' or chosen_func == 'y':
+        return [chosen_func]
+
 
 
 def evaluate_random_function(f, x, y):
     """ Evaluate the random function f with inputs x,y
-        Representation of the function f is defined in the assignment writeup
+        f is the nested function representation outputted by build_random_function;
+        it's a list from which we take everything needed to call evaluate_random_function
 
         f: the function to evaluate
         x: the value of x to be used to evaluate the function
@@ -33,8 +48,18 @@ def evaluate_random_function(f, x, y):
         >>> evaluate_random_function(["y"],0.1,0.02)
         0.02
     """
-    # TODO: implement this
-    pass
+    if f[0] == 'prod': #f[0] is the first part of the nested function, so it establishes the outermost function of the nest
+        return evaluate_random_function(f[1], x, y) * evaluate_random_function(f[1], x, y) #f[1] is another list: we take its first element...so on and so forth
+    elif f[0] == 'avg':
+        return 0.5 * (evaluate_random_function(f[1], x, y) + evaluate_random_function(f[1], x, y))
+    elif f[0] == 'cos_pi':
+        return np.cos(np.pi * evaluate_random_function(f[1], x, y))
+    elif f[0] == 'sin_pi':
+        return np.sin(np.pi * evaluate_random_function(f[1], x, y))
+    elif f[0] == 'x':
+        return x
+    elif f[0] == 'y':
+        return y
 
 
 def remap_interval(val,
@@ -63,9 +88,21 @@ def remap_interval(val,
         1.0
         >>> remap_interval(5, 4, 6, 1, 2)
         1.5
+        >>> remap_interval(3, 0, 4, 0, 20) #all the above tests are of the middle value; I want to make sure remap_interval works properly when val != the middle value of the input interval
+        15.0
+        >>> remap_interval(5, 4, 10, 0, 6) #this tests on the other side of the middle
+        1.0
     """
-    # TODO: implement this
-    pass
+    input_range = float(input_interval_end) - float(input_interval_start)
+    output_range = float(output_interval_end) - float(output_interval_start)
+    #we need to use the relationship b/w val and the input interval. This means making sure they stay mapped to each other
+    val_relate = float(val) - float(input_interval_start)
+    #val_relate / input_range = x (the variable we're evaluating) / output_range. This sets up the left side of that equation
+    compare_ratio = float(val_relate) / float(input_range)
+    #x is the number we want, mapped to 0. Adding this to output_interval_start will give us what we're really looking for
+    x = float(output_range) * compare_ratio
+    number = x + float(output_interval_start)
+    return number
 
 
 def color_map(val):
@@ -116,9 +153,9 @@ def generate_art(filename, x_size=350, y_size=350):
         x_size, y_size: optional args to set image dimensions (default: 350)
     """
     # Functions for red, green, and blue channels - where the magic happens!
-    red_function = ["x"]
-    green_function = ["y"]
-    blue_function = ["x"]
+    red_function = build_random_function(7, 9)
+    green_function = build_random_function(7, 9)
+    blue_function = build_random_function(7, 9)
 
     # Create image and loop over all pixels
     im = Image.new("RGB", (x_size, y_size))
@@ -143,8 +180,8 @@ if __name__ == '__main__':
     # Create some computational art!
     # TODO: Un-comment the generate_art function call after you
     #       implement remap_interval and evaluate_random_function
-    # generate_art("myart.png")
+    generate_art("myart2.png")
 
     # Test that PIL is installed correctly
     # TODO: Comment or remove this function call after testing PIL install
-    test_image("noise.png")
+#    test_image("noise.png")
