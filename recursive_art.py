@@ -15,25 +15,27 @@ def build_random_function(min_depth, max_depth):
         max_depth: the maximum depth of the random function
         returns: the randomly generated function represented as a nested list
     """
-    funcs = ['prod', 'avg', 'cos_pi', 'sin_pi', 'x', 'y']
-    chosen_func = random.choice(funcs)
-    if min_depth > 0:
-        chosen_func = random.choice(funcs[0:4]) #if we haven't reached min_depth yet, we don't want to include x and y in the list of functions to choose from
-    elif min_depth <= 0 and max_depth > 0:
-        chosen_func = random.choice(funcs)
-    elif max_depth == 0:
-        chosen_func = random.choice(funcs[4:len(funcs)]) #if we've already reached max_depth, we don't want to continue; we only want to choose x or y
+    funcs2input = ['prod', 'avg']
+    funcs1input = ['cos_pi', 'sin_pi']
+    funcs_base = ['x', 'y', 't']
 
-    if chosen_func == 'prod' or chosen_func == 'avg':
+    if min_depth > 0:
+        chosen_func = random.choice(funcs2input + funcs1input) #if we haven't reached min_depth yet, we don't want to include x and y in the list of functions to choose from
+    elif min_depth <= 0 and max_depth > 0:
+        chosen_func = random.choice(funcs2input + funcs1input + funcs_base)
+    elif max_depth == 0:
+        chosen_func = random.choice(funcs_base) #if we've already reached max_depth, we don't want to continue; we only want to choose x or y
+
+    if chosen_func in funcs2input:
         return [chosen_func, build_random_function(min_depth-1, max_depth-1), build_random_function(min_depth-1, max_depth-1)] #prod & avg each take 2 arguments
-    elif chosen_func == 'cos_pi' or chosen_func == 'sin_pi':
+    elif chosen_func in funcs1input:
         return [chosen_func, build_random_function(min_depth-1, max_depth-1)] #cos and sin take 1 argument each
-    elif chosen_func == 'x' or chosen_func == 'y':
+    elif chosen_func in funcs_base:
         return [chosen_func]
 
 
 
-def evaluate_random_function(f, x, y):
+def evaluate_random_function(f, x, y, t):
     """ Evaluate the random function f with inputs x,y
         f is the nested function representation outputted by build_random_function;
         it's a list from which we take everything needed to call evaluate_random_function
@@ -41,6 +43,7 @@ def evaluate_random_function(f, x, y):
         f: the function to evaluate
         x: the value of x to be used to evaluate the function
         y: the value of y to be used to evaluate the function
+        t: the movie frame
         returns: the function value
 
         >>> evaluate_random_function(["x"],-0.5, 0.75)
@@ -49,17 +52,19 @@ def evaluate_random_function(f, x, y):
         0.02
     """
     if f[0] == 'prod': #f[0] is the first part of the nested function, so it establishes the outermost function of the nest
-        return evaluate_random_function(f[1], x, y) * evaluate_random_function(f[1], x, y) #f[1] is another list: we take its first element...so on and so forth
+        return evaluate_random_function(f[1], x, y, t) * evaluate_random_function(f[1], x, y, t) #f[1] is another list: we take its first element...so on and so forth
     elif f[0] == 'avg':
-        return 0.5 * (evaluate_random_function(f[1], x, y) + evaluate_random_function(f[1], x, y))
+        return 0.5 * (evaluate_random_function(f[1], x, y, t) + evaluate_random_function(f[1], x, y, t))
     elif f[0] == 'cos_pi':
-        return np.cos(np.pi * evaluate_random_function(f[1], x, y))
+        return np.cos(np.pi * evaluate_random_function(f[1], x, y, t))
     elif f[0] == 'sin_pi':
-        return np.sin(np.pi * evaluate_random_function(f[1], x, y))
+        return np.sin(np.pi * evaluate_random_function(f[1], x, y, t))
     elif f[0] == 'x':
         return x
     elif f[0] == 'y':
         return y
+    elif f[0] == 't':
+        return t
 
 
 def remap_interval(val,
@@ -146,42 +151,39 @@ def test_image(filename, x_size=350, y_size=350):
     im.save(filename)
 
 
-def generate_art(filename, x_size=350, y_size=350):
+def generate_art(x_size=350, y_size=350, t_size=100):
     """ Generate computational art and save as an image file.
 
         filename: string filename for image (should be .png)
         x_size, y_size: optional args to set image dimensions (default: 350)
+        t_size = number of frames in the movie
     """
     # Functions for red, green, and blue channels - where the magic happens!
     red_function = build_random_function(7, 9)
     green_function = build_random_function(7, 9)
     blue_function = build_random_function(7, 9)
 
-    # Create image and loop over all pixels
-    im = Image.new("RGB", (x_size, y_size))
-    pixels = im.load()
-    for i in range(x_size):
-        for j in range(y_size):
-            x = remap_interval(i, 0, x_size, -1, 1)
-            y = remap_interval(j, 0, y_size, -1, 1)
-            pixels[i, j] = (
-                    color_map(evaluate_random_function(red_function, x, y)),
-                    color_map(evaluate_random_function(green_function, x, y)),
-                    color_map(evaluate_random_function(blue_function, x, y))
-                    )
 
-    im.save(filename)
+    for k in range(t_size):
+            # Create image and loop over all pixels
+        im = Image.new("RGB", (x_size, y_size))
+        pixels = im.load()
+        for i in range(x_size):
+            for j in range(y_size):
+                x = remap_interval(i, 0, x_size, -1, 1)
+                y = remap_interval(j, 0, y_size, -1, 1)
+                t = remap_interval(k, 0, t_size, -1, 1)
+                pixels[i, j] = (
+                        color_map(evaluate_random_function(red_function, x, y, t)),
+                        color_map(evaluate_random_function(green_function, x, y, t)),
+                        color_map(evaluate_random_function(blue_function, x, y, t))
+                        )
+        im.save("frame%d.png" % k)
 
 
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
+# if __name__ == '__main__':
+#     import doctest
+#     doctest.testmod()
 
-    # Create some computational art!
-    # TODO: Un-comment the generate_art function call after you
-    #       implement remap_interval and evaluate_random_function
-    generate_art("myart2.png")
-
-    # Test that PIL is installed correctly
-    # TODO: Comment or remove this function call after testing PIL install
-#    test_image("noise.png")
+# Create some computational art!
+generate_art()
